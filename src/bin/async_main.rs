@@ -1,9 +1,11 @@
 #![no_std]
 #![no_main]
 
+use diane::ESPTime;
 use embassy_executor::Spawner;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::SdCard;
+use embedded_sdmmc::VolumeManager;
 use esp_backtrace as _;
 use esp_hal::{
     delay::Delay,
@@ -31,8 +33,8 @@ async fn main(_spawner: Spawner) {
     esp_println::logger::init_logger_from_env();
 
     let sclk = peripherals.GPIO18;
-    let miso = peripherals.GPIO19; // This pin might be switched
-    let mosi = peripherals.GPIO23; // with this pin, 🤷
+    let miso = peripherals.GPIO19;
+    let mosi = peripherals.GPIO23;
     let cs = Output::new(peripherals.GPIO5, Level::Low);
 
     let spi = Spi::new_with_config(
@@ -53,4 +55,11 @@ async fn main(_spawner: Spawner) {
     let sd_card = SdCard::new(spi_dev, delay);
 
     println!("Size of the sd card: {:#?}", sd_card.num_bytes().unwrap());
+
+    let mut volume_manager = VolumeManager::new(sd_card, ESPTime::new());
+
+    let volume0 = volume_manager
+        .open_volume(embedded_sdmmc::VolumeIdx(0))
+        .unwrap();
+    println!("Volume 0: {:?}", volume0);
 }

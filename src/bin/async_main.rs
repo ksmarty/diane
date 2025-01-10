@@ -4,6 +4,7 @@
 use diane::ESPTime;
 use embassy_executor::Spawner;
 use embedded_hal_bus::spi::ExclusiveDevice;
+use embedded_sdmmc::Mode;
 use embedded_sdmmc::SdCard;
 use embedded_sdmmc::VolumeManager;
 use esp_backtrace as _;
@@ -18,6 +19,9 @@ use esp_hal::{
     timer::timg::TimerGroup,
 };
 use esp_println::println;
+
+// Per DOS: file names are max: 8 name, 3 extension
+const FILE_NAME: &str = "CONFIG.YML";
 
 #[main]
 async fn main(_spawner: Spawner) {
@@ -58,8 +62,24 @@ async fn main(_spawner: Spawner) {
 
     let mut volume_manager = VolumeManager::new(sd_card, ESPTime::new());
 
-    let volume0 = volume_manager
+    let mut volume = volume_manager
         .open_volume(embedded_sdmmc::VolumeIdx(0))
         .unwrap();
-    println!("Volume 0: {:?}", volume0);
+    println!("Volume 0: {:?}", volume);
+
+    let mut root_dir = volume.open_root_dir().unwrap();
+
+    let mut file = root_dir
+        .open_file_in_dir(FILE_NAME, Mode::ReadWriteCreate)
+        .unwrap();
+    let contents = b"
+wifi:
+    SSID: \"\"
+    PASSWORD: \"\"
+    ";
+    file.write(contents).unwrap();
+
+    file.close().unwrap();
+
+    println!("File written!");
 }

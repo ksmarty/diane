@@ -52,6 +52,7 @@ critical-section = "1.2.0"
 embedded-sdmmc = "0.8.1"
 embedded-hal-bus = "0.2.0"
 embedded-hal = "1.0.0"
+yaml-peg = "1.0.8"
 
 [profile.dev]
 # Rust debug is too slow.

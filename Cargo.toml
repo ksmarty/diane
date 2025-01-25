@@ -61,6 +61,8 @@ sdspi = { version = "0.1.0", git = "https://github.com/MabezDev/embedded-fatfs.g
 block-device-adapters = { version = "0.2.0", git = "https://github.com/MabezDev/embedded-fatfs.git" }
 embedded-fatfs = { version = "0.1.0", git = "https://github.com/MabezDev/embedded-fatfs.git", default-features = false, features = [
     "log",
+    "alloc",
+    "lfn",
 ] }
 embassy-embedded-hal = "0.3.0"
 embassy-sync = "0.6.2"

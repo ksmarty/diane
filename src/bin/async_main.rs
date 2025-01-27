@@ -3,7 +3,7 @@
 
 use core::u8;
 
-use aligned::A4;
+use aligned::{A1, A4};
 use alloc::string::ToString;
 use block_device_adapters::{BufStream, BufStreamError, StreamSlice};
 use embassy_embedded_hal::shared_bus::asynch::spi::SpiDeviceWithConfig;
@@ -31,7 +31,7 @@ use esp_hal::{
     timer::systimer::SystemTimer,
 };
 use esp_hal_embassy::main;
-use esp_println::println;
+use esp_println::{print, println};
 use log::info;
 use mbr_nostd::{MasterBootRecord, PartitionTable};
 use sdspi::{sd_init, SdSpi};
@@ -62,8 +62,7 @@ async fn main(_spawner: Spawner) {
     info!("{:?}", reason);
     info!("{:?}", wake_reason);
 
-    let mut led = Output::new(peripherals.GPIO9, Level::High);
-    led.set_low();
+    let mut led = Output::new(peripherals.GPIO9, Level::Low);
 
     // let timer1 = esp_hal::timer::timg::TimerGroup::new(peripherals.TIMG0);
     // let _init = esp_wifi::init(
@@ -117,10 +116,10 @@ async fn main(_spawner: Spawner) {
 
     let spi_bus = Mutex::<RawMutex, _>::new(spi);
     let spid = SpiDeviceWithConfig::new(&spi_bus, cs, Config::default());
-    let mut sd = SdSpi::<_, _, A4>::new(spid, Delay);
+    let mut sd = SdSpi::<_, _, A1>::new(spid, Delay);
 
-    while sd.init().await.is_err() {
-        println!("Failed to init card, retrying...");
+    while let Err(err) = sd.init().await {
+        println!("Failed to init card: {:?}, retrying...", err);
         Timer::after_millis(500).await;
     }
     // Increase the speed up to the SD max of 25mhz
@@ -208,26 +207,25 @@ async fn main(_spawner: Spawner) {
                 16, 0, 0, 0, // Subchunk1Size (16 for PCM)
                 1, 0, // AudioFormat (1 = PCM)
                 2, 0, // NumChannels (1 = Mono)
-                0x40, 0x1F, 0x00, 0x00, // SampleRate (8000 Hz)
-                0x00, 0x7D, 0x00, 0x00, // ByteRate
-                2, 0, // BlockAlign
+                0x80, 0x3E, 0x00, 0x00, // SampleRate (16 kHz)
+                0x00, 0xFA, 0x00, 0x00, // ByteRate
+                4, 0, // BlockAlign
                 16, 0, // BitsPerSample
                 b'd', b'a', b't', b'a', // Subchunk2ID
                 0xff, 0xff, 0xff, 0xff, // Subchunk2Size (to be filled)
             ];
-            f.write(&header).await.unwrap();
+            f.write_all(&header).await.unwrap();
             f.flush().await.unwrap();
 
             led.set_high();
 
-            let mut transfer = i2s_rx.read_dma_circular_async(rx_buffer_i2s).unwrap();
             let mut data = [0u8; I2S_BYTES];
+            let mut transfer = i2s_rx.read_dma_circular_async(rx_buffer_i2s).unwrap();
 
-            let mut total_data_bytes: u32 = 0;
+            // 1026 garbage bytes at the start bytes
 
             loop {
                 let i2s_bytes_read = transfer.pop(&mut data).await.unwrap();
-                total_data_bytes += i2s_bytes_read as u32;
 
                 f.write(&data[..i2s_bytes_read]).await.unwrap();
                 f.flush().await.unwrap();
@@ -239,17 +237,19 @@ async fn main(_spawner: Spawner) {
                 }
             }
 
-            let file_size = total_data_bytes + HEADER_SIZE as u32 - 8;
+            let file_size: u32 = f.stream_position().await.unwrap() as u32;
+
             f.seek(SeekFrom::Start(4)).await.unwrap();
-            f.write(&(file_size).to_ne_bytes()).await.unwrap();
+            f.write_all(&(file_size - 8).to_ne_bytes()).await.unwrap();
+            f.flush().await.unwrap();
 
             f.seek(SeekFrom::Start(40)).await.unwrap();
-            f.write(&(total_data_bytes).to_ne_bytes()).await.unwrap();
+            f.write_all(&(file_size - HEADER_SIZE as u32).to_ne_bytes())
+                .await
+                .unwrap();
+            f.flush().await.unwrap();
 
-            println!(
-                "File size: {} | Data bytes: {}",
-                file_size, total_data_bytes
-            );
+            println!("File size: {}", file_size);
         }
 
         fs.unmount().await.unwrap();

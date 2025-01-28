@@ -3,7 +3,7 @@
 
 use core::u8;
 
-use aligned::{A1, A4};
+use aligned::A4;
 use alloc::string::ToString;
 use block_device_adapters::{BufStream, BufStreamError, StreamSlice};
 use embassy_embedded_hal::shared_bus::asynch::spi::SpiDeviceWithConfig;
@@ -116,7 +116,7 @@ async fn main(_spawner: Spawner) {
 
     let spi_bus = Mutex::<RawMutex, _>::new(spi);
     let spid = SpiDeviceWithConfig::new(&spi_bus, cs, Config::default());
-    let mut sd = SdSpi::<_, _, A1>::new(spid, Delay);
+    let mut sd = SdSpi::<_, _, A4>::new(spid, Delay);
 
     while let Err(err) = sd.init().await {
         println!("Failed to init card: {:?}, retrying...", err);

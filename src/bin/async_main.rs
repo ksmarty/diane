@@ -3,33 +3,26 @@
 
 use core::u8;
 
-use diane::{enter_deep_sleep, ESPTime, SDUtils, HEADER, HEADER_SIZE};
+use diane::{enter_deep_sleep, setup_i2s, SDUtils, I2S_BYTES};
 use embassy_executor::Spawner;
-use embedded_hal_bus::spi::ExclusiveDevice;
-use embedded_sdmmc::filesystem::ToShortFileName;
-use embedded_sdmmc::{Mode, SdCard, VolumeManager};
+use embedded_sdmmc::Mode;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, Pin, Pull};
-use esp_hal::i2s::master::{DataFormat, I2s, Standard};
 use esp_hal::reset::wakeup_cause;
 use esp_hal::rtc_cntl::{reset_reason, SocResetReason};
+use esp_hal::Cpu;
 use esp_hal::{
-    delay::Delay,
     gpio::{Level, Output},
-    spi::master::{Config, Spi},
-    time::RateExtU32,
     timer::systimer::SystemTimer,
 };
-use esp_hal::{dma_buffers, Cpu};
 use esp_hal_embassy::main;
 use esp_println::println;
 use log::info;
 
 extern crate alloc;
 
-// DMA buffer size
-const I2S_BYTES: usize = 4092;
+const RECORDING_LOCATION: &str = "clips";
 
 #[main]
 async fn main(_spawner: Spawner) {
@@ -54,6 +47,8 @@ async fn main(_spawner: Spawner) {
 
     let mut led = Output::new(peripherals.GPIO9, Level::Low);
 
+    let mut button = Input::new(peripherals.GPIO10, Pull::Up);
+
     // let timer1 = esp_hal::timer::timg::TimerGroup::new(peripherals.TIMG0);
     // let _init = esp_wifi::init(
     //     timer1.timer0,
@@ -63,88 +58,65 @@ async fn main(_spawner: Spawner) {
     // .unwrap();
 
     // -------------------
-    // SD Card - Device Setup
+    // SD Card Setup
     // -------------------
 
-    let sclk = peripherals.GPIO4;
-    let miso = peripherals.GPIO5;
-    let mosi = peripherals.GPIO6;
-    let cs = Output::new(peripherals.GPIO7, Level::Low);
-
-    let spi = Spi::new(
+    let mut volume_manager = SDUtils::setup_sd_card(
+        peripherals.GPIO4.degrade(),
+        peripherals.GPIO5.degrade(),
+        peripherals.GPIO6.degrade(),
+        peripherals.GPIO7.degrade(),
         peripherals.SPI2,
-        Config::default()
-            .with_frequency(25.MHz())
-            .with_mode(esp_hal::spi::Mode::_0),
-    )
-    .unwrap()
-    .with_sck(sclk)
-    .with_mosi(mosi)
-    .with_miso(miso);
-
-    let delay = Delay::new();
-
-    let spi_dev = ExclusiveDevice::new(spi, cs, delay).unwrap();
-    let sd_card = SdCard::new(spi_dev, delay);
-
-    println!("Size of the sd card: {:#?}", sd_card.num_bytes().unwrap());
-
-    let mut volume_manager = VolumeManager::new(sd_card, ESPTime::new());
+    );
 
     let mut volume = volume_manager
         .open_volume(embedded_sdmmc::VolumeIdx(0))
         .unwrap();
     println!("Volume 0: {:?}", volume);
 
+    let mut root_dir = volume.open_root_dir().unwrap();
+
+    // Create dir if it doesn't exist
+    if root_dir.open_dir(RECORDING_LOCATION).is_err() {
+        root_dir.make_dir_in_dir(RECORDING_LOCATION).unwrap();
+    }
+
+    let mut recordings = root_dir.open_dir(RECORDING_LOCATION).unwrap();
+
+    let file_name = SDUtils::get_next_file_name(&mut recordings);
+
+    let mut file = recordings
+        .open_file_in_dir(file_name, Mode::ReadWriteCreate)
+        .unwrap();
+
+    SDUtils::write_wav_header(&mut file).unwrap();
+
     // -------------------
     // i2s Setup
     // -------------------
 
-    let bclk = peripherals.GPIO0; // sck - purple
-    let din = peripherals.GPIO2; //  sd  - black
-    let ws = peripherals.GPIO1; //   ws  - blue
-
-    let dma_channel_i2s = peripherals.DMA_CH1;
-    let (mut rx_buffer_i2s, rx_descriptors_i2s, _, tx_descriptors_i2s) =
-        dma_buffers!(4 * I2S_BYTES, 0);
-
-    let i2s = I2s::new(
+    let (mut i2s_rx, mut rx_buffer_i2s) = setup_i2s(
+        peripherals.GPIO0.degrade(),
+        peripherals.GPIO2.degrade(),
+        peripherals.GPIO1.degrade(),
         peripherals.I2S0,
-        Standard::Philips,
-        DataFormat::Data16Channel16,
-        16.kHz(),
-        dma_channel_i2s,
-        rx_descriptors_i2s,
-        tx_descriptors_i2s,
+        peripherals.DMA_CH1,
     );
-
-    let mut i2s_rx = i2s.i2s_rx.with_bclk(bclk).with_ws(ws).with_din(din).build();
-
-    let mut button = Input::new(peripherals.GPIO10, Pull::Up);
-
-    let mut root_dir = volume.open_root_dir().unwrap();
-
-    let file_name = SDUtils::get_next_file_name(&mut root_dir);
-
-    let mut file = root_dir
-        .open_file_in_dir(
-            file_name.to_short_filename().unwrap(),
-            Mode::ReadWriteCreate,
-        )
-        .unwrap();
-
-    file.write(&HEADER).unwrap();
-
-    led.set_high();
 
     let mut transfer = i2s_rx.read_dma_circular(&mut rx_buffer_i2s).unwrap();
 
     let mut data = [0u8; 2 * I2S_BYTES];
 
-    // Ignore the first n buffers. Garbage data
-    let mut ignore_counter = 6;
+    // -------------------
+    // Recording
+    // -------------------
 
     async {
+        // Ignore the first n buffers. Garbage data
+        let mut ignore_counter = 6;
+
+        led.set_high();
+
         loop {
             let avail = transfer.available().unwrap();
 
@@ -173,16 +145,13 @@ async fn main(_spawner: Spawner) {
     }
     .await;
 
+    // -------------------
+    // Cleanup
+    // -------------------
+
     let file_size: u32 = file.length();
 
-    file.seek_from_start(4).unwrap();
-    file.write(&(file_size - 8).to_ne_bytes()).unwrap();
-    file.flush().unwrap();
-
-    file.seek_from_start(40).unwrap();
-    file.write(&(file_size - HEADER_SIZE as u32).to_ne_bytes())
-        .unwrap();
-    file.flush().unwrap();
+    SDUtils::update_wav_header(&mut file, file_size).unwrap();
 
     println!("File size: {}", file_size);
     file.close().unwrap();

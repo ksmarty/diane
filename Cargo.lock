@@ -60,24 +60,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36"
 
 [[package]]
-name = "block-device-adapters"
-version = "0.2.0"
-source = "git+https://github.com/MabezDev/embedded-fatfs.git#428ad03cee555d9636f061d7bca7a62c4889cc63"
-dependencies = [
- "aligned",
- "block-device-driver",
- "embedded-io-async",
-]
-
-[[package]]
-name = "block-device-driver"
-version = "0.2.0"
-source = "git+https://github.com/MabezDev/embedded-fatfs.git#428ad03cee555d9636f061d7bca7a62c4889cc63"
-dependencies = [
- "aligned",
-]
-
-[[package]]
 name = "bytemuck"
 version = "1.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -161,14 +143,12 @@ name = "diane"
 version = "0.1.0"
 dependencies = [
  "aligned",
- "block-device-adapters",
  "critical-section",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-net",
  "embassy-sync",
  "embassy-time",
- "embedded-fatfs",
  "embedded-hal-bus",
  "embedded-io",
  "embedded-io-async",
@@ -182,7 +162,6 @@ dependencies = [
  "heapless",
  "log",
  "mbr-nostd",
- "sdspi",
  "smoltcp 0.11.0",
  "static_cell",
  "substring",
@@ -324,16 +303,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9d2e857f87ac832df68fa498d18ddc679175cf3d2e4aa893988e5601baf9438"
 dependencies = [
  "nb 1.1.0",
-]
-
-[[package]]
-name = "embedded-fatfs"
-version = "0.1.0"
-source = "git+https://github.com/MabezDev/embedded-fatfs.git#428ad03cee555d9636f061d7bca7a62c4889cc63"
-dependencies = [
- "bitflags 1.3.2",
- "embedded-io-async",
- "log",
 ]
 
 [[package]]
@@ -1147,26 +1116,6 @@ name = "rustversion"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7c45b9784283f1b2e7fb61b42047c2fd678ef0960d4f6f1eba131594cc369d4"
-
-[[package]]
-name = "sdio-host"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b328e2cb950eeccd55b7f55c3a963691455dcd044cfb5354f0c5e68d2c2d6ee2"
-
-[[package]]
-name = "sdspi"
-version = "0.1.0"
-source = "git+https://github.com/MabezDev/embedded-fatfs.git#428ad03cee555d9636f061d7bca7a62c4889cc63"
-dependencies = [
- "aligned",
- "block-device-driver",
- "embassy-futures",
- "embedded-hal 1.0.0",
- "embedded-hal-async",
- "log",
- "sdio-host",
-]
 
 [[package]]
 name = "serde"

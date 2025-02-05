@@ -115,8 +115,6 @@ async fn main(_spawner: Spawner) {
         // Ignore the first n buffers. Garbage data
         let mut ignore_counter = 6;
 
-        led.set_high();
-
         loop {
             let avail = transfer.available().unwrap();
 
@@ -128,6 +126,12 @@ async fn main(_spawner: Spawner) {
 
             if ignore_counter > 0 {
                 ignore_counter -= 1;
+
+                // Only turn on the LED once recording starts
+                if ignore_counter == 0 {
+                    led.set_high();
+                }
+
                 continue;
             }
 

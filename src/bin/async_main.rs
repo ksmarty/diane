@@ -3,9 +3,12 @@
 
 use core::u8;
 
+use diane::http_date_time::MiniDateTime;
+use diane::wifi_helper::WiFiHelper;
 use diane::{enter_deep_sleep, setup_i2s, SDUtils, I2S_BYTES};
 use embassy_executor::Spawner;
 use embedded_sdmmc::Mode;
+use esp_alloc as _;
 use esp_backtrace as _;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Input, Pin, Pull};
@@ -24,8 +27,11 @@ extern crate alloc;
 
 const RECORDING_LOCATION: &str = "clips";
 
+const SSID: &str = "Example";
+const PASSWORD: &str = "password";
+
 #[main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
@@ -49,13 +55,44 @@ async fn main(_spawner: Spawner) {
 
     let mut button = Input::new(peripherals.GPIO10, Pull::Up);
 
-    // let timer1 = esp_hal::timer::timg::TimerGroup::new(peripherals.TIMG0);
-    // let _init = esp_wifi::init(
-    //     timer1.timer0,
-    //     esp_hal::rng::Rng::new(peripherals.RNG),
-    //     peripherals.RADIO_CLK,
-    // )
-    // .unwrap();
+    // -------------------
+    // WiFi Setup
+    // -------------------
+
+    let wifi = WiFiHelper::new(
+        spawner,
+        peripherals.WIFI,
+        peripherals.TIMG0,
+        peripherals.RNG,
+        peripherals.RADIO_CLK,
+        SSID.try_into().unwrap(),
+        PASSWORD.try_into().unwrap(),
+    )
+    .await;
+
+    let (response, len) = wifi.http_get("motherfuckingwebsite.com").await;
+
+    let (date, body) = if let Ok(response_str) = core::str::from_utf8(&response[..len]) {
+        let date = response_str
+            .lines()
+            .find(|line| line.starts_with("date: "))
+            .map(|line| line.trim_start_matches("date: ").trim())
+            .unwrap_or_default();
+
+        let body = response_str
+            .find("\r\n\r\n")
+            .map(|start| &response_str[start + 4..])
+            .unwrap_or_default();
+
+        (date, body)
+    } else {
+        ("", "")
+    };
+
+    let current_time = MiniDateTime::new(date);
+
+    println!("Date: {}", current_time.sd_timestamp);
+    println!("Body: {}", body);
 
     // -------------------
     // SD Card Setup

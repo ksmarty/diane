@@ -14,7 +14,7 @@ esp-backtrace = { version = "0.14.2", features = [
 esp-hal = { version = "0.23.1", features = ["esp32c3", "debug"] }
 esp-println = { version = "0.12.0", features = ["esp32c3", "log"] }
 log = { version = "0.4.21" }
-esp-alloc = { version = "0.5.0" }
+esp-alloc = { version = "0.6.0" }
 embedded-io = "0.6.1"
 
 embedded-io-async = "0.6.1"
@@ -25,12 +25,12 @@ embassy-net = { version = "0.6.0", features = [
     "medium-ethernet",
 ] }
 
-esp-wifi = { version = "0.12.0", default-features = false, features = [
+esp-wifi = { version = "0.12.0", features = [
     "esp32c3",
     "utils",
     "wifi",
-    "esp-alloc",
     "log",
+    "esp-alloc",
 ] }
 heapless = { version = "0.8.0", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = [
@@ -57,6 +57,10 @@ aligned = "0.4.2"
 embassy-embedded-hal = "0.3.0"
 embassy-sync = "0.6.2"
 mbr-nostd = "0.1.0"
+esp-embassy-wifihelper = { version = "0.2.2", default-features = false, features = [
+    "esp32c3",
+] }
+utc-dt = { version = "0.3.1", default-features = false }
 
 [profile.dev]
 # Rust debug is too slow.

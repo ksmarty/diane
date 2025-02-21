@@ -153,8 +153,9 @@ dependencies = [
  "embedded-io",
  "embedded-io-async",
  "embedded-sdmmc",
- "esp-alloc 0.5.0",
+ "esp-alloc",
  "esp-backtrace",
+ "esp-embassy-wifihelper",
  "esp-hal",
  "esp-hal-embassy",
  "esp-println",
@@ -165,6 +166,7 @@ dependencies = [
  "smoltcp 0.11.0",
  "static_cell",
  "substring",
+ "utc-dt",
  "uuid",
 ]
 
@@ -203,6 +205,7 @@ dependencies = [
  "critical-section",
  "document-features",
  "embassy-executor-macros",
+ "log",
 ]
 
 [[package]]
@@ -453,17 +456,6 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "esp-alloc"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5162b6e9cd99cc974ec2742da3cf8433e7332853ae10fec922d174ff20fa4c5f"
-dependencies = [
- "critical-section",
- "enumset",
- "linked_list_allocator",
-]
-
-[[package]]
-name = "esp-alloc"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "408c0d4c7f51efb256af18641047b0d83b58a485be9edf5a559da796abef0b63"
@@ -514,6 +506,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd428a3b4b2975772f24eabea123d45cf6a5e28020396ed5dcb331ee3a904046"
 dependencies = [
  "document-features",
+]
+
+[[package]]
+name = "esp-embassy-wifihelper"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b993caf86ad36872c0952752fcd0d3a92bf4ff2d09708c6be285b2db4bfb3f7"
+dependencies = [
+ "embassy-executor",
+ "embassy-net",
+ "embassy-time",
+ "esp-hal",
+ "esp-hal-embassy",
+ "esp-wifi",
+ "heapless",
+ "log",
+ "smoltcp 0.12.0",
+ "static_cell",
 ]
 
 [[package]]
@@ -656,7 +666,7 @@ dependencies = [
  "embedded-io",
  "embedded-io-async",
  "enumset",
- "esp-alloc 0.6.0",
+ "esp-alloc",
  "esp-build 0.2.0",
  "esp-config",
  "esp-hal",
@@ -1289,6 +1299,12 @@ name = "unicode-ident"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11cd88e12b17c6494200a9c1b683a04fcac9573ed74cd1b62aeb2727c5592243"
+
+[[package]]
+name = "utc-dt"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9540e29de59f65d3eb99b2e609362f161f53fc05500095f71cc93323604372c5"
 
 [[package]]
 name = "uuid"
